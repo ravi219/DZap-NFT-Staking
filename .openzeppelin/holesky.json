@@ -1,0 +1,190 @@
+{
+  "manifestVersion": "3.2",
+  "proxies": [
+    {
+      "address": "0x6D14B977Cf13bCe5cCd8Ae9D2002131136Bd42d6",
+      "txHash": "0x43e1a6927d1bd08d353c90d6f1482591b6c3427505f7ca5d52eb5e31a1a249c1",
+      "kind": "uups"
+    }
+  ],
+  "impls": {
+    "d8bc61059f7f8f9da2de2bdd5e0d581cd09602206605026151de9336a334f2fa": {
+      "address": "0x2F289C08075019A8BA482CE7Eb8D74E2ffFb74eb",
+      "txHash": "0x55cc3b48d8cafcea67ea27166dac8a8ad9fac90d24c40be3ba2616ee999fa8ea",
+      "layout": {
+        "solcVersion": "0.8.24",
+        "storage": [
+          {
+            "label": "nft",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_contract(IERC721)3426",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:20"
+          },
+          {
+            "label": "rewardToken",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(IERC20)1948",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:21"
+          },
+          {
+            "label": "admin",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_address",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:23"
+          },
+          {
+            "label": "rewardPerBlock",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_uint256",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:24"
+          },
+          {
+            "label": "unbondingPeriod",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_uint256",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:25"
+          },
+          {
+            "label": "rewardClaimDelay",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_uint256",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:26"
+          },
+          {
+            "label": "stakes",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_struct(Stake)5365_storage))",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:36"
+          },
+          {
+            "label": "tokenOwner",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_uint256,t_address)",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:37"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(IERC20)1948": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IERC721)3426": {
+            "label": "contract IERC721",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_struct(Stake)5365_storage))": {
+            "label": "mapping(address => mapping(uint256 => struct DZapNFTStaking.Stake))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_address)": {
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(Stake)5365_storage)": {
+            "label": "mapping(uint256 => struct DZapNFTStaking.Stake)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Stake)5365_storage": {
+            "label": "struct DZapNFTStaking.Stake",
+            "members": [
+              {
+                "label": "tokenId",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "stakedAt",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "unbondingAt",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "rewardClaimedAt",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "isStaked",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol:21"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

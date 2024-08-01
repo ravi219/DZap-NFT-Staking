@@ -11,18 +11,19 @@ describe("DZapNFTStaking", function () {
     nftContract = await NFT.deploy();
     await nftContract.deployed();
 
-    const RewardToken = await ethers.getContractFactory("MockERC20");
+    const RewardToken = await ethers.getContractFactory("MockRewardToken");
     rewardToken = await RewardToken.deploy();
     await rewardToken.deployed();
 
     const Staking = await ethers.getContractFactory("DZapNFTStaking");
     stakingContract = await upgrades.deployProxy(Staking, [
+      owner.address,
       nftContract.address,
       rewardToken.address,
       ethers.utils.parseUnits("10", 18),
       100,
-      600,
-    ]);
+      100
+    ], { initializer: 'initialize' });
     await stakingContract.deployed();
 
     // Mint some NFTs and reward tokens for testing
@@ -32,37 +33,50 @@ describe("DZapNFTStaking", function () {
     await rewardToken.mint(stakingContract.address, ethers.utils.parseUnits("1000000", 18));
   });
 
-  it("Should allow staking and unstaking of NFTs", async function () {
+  it("Should allow staking and unstaking of multiple NFTs per user", async function () {
     await nftContract.connect(addr1).approve(stakingContract.address, 1);
     await stakingContract.connect(addr1).stake(1);
+    
+    await nftContract.connect(addr1).approve(stakingContract.address, 2);
+    await stakingContract.connect(addr1).stake(2);
 
-    let stakes = await stakingContract.stakes(addr1.address);
-    expect(stakes.length).to.equal(1);
+    let stake1 = await stakingContract.stakes(addr1.address, 1);
+    let stake2 = await stakingContract.stakes(addr1.address, 2);
+    
+    expect(stake1.tokenId).to.equal(1);
+    expect(stake2.tokenId).to.equal(2);
 
     await stakingContract.connect(addr1).unstake(1);
 
-    stakes = await stakingContract.stakes(addr1.address);
-    expect(stakes[0].unbondingAt).to.be.gt(0);
+    stake1 = await stakingContract.stakes(addr1.address, 1);
+    expect(stake1.unbondingAt).to.be.gt(0);
   });
 
-  it("Should distribute rewards correctly", async function () {
+  it("Should distribute rewards correctly for multiple NFTs", async function () {
     await nftContract.connect(addr1).approve(stakingContract.address, 1);
     await stakingContract.connect(addr1).stake(1);
 
+    await nftContract.connect(addr1).approve(stakingContract.address, 2);
+    await stakingContract.connect(addr1).stake(2);
+    // await stakingContract.connect(addr1).unstake(1);
+    // await stakingContract.connect(addr1).unstake(2);
     // Simulate some blocks
     for (let i = 0; i < 200; i++) {
       await ethers.provider.send("evm_mine", []);
     }
-
     await stakingContract.connect(addr1).claimRewards(1);
+    await stakingContract.connect(addr1).claimRewards(2);
 
     let balance = await rewardToken.balanceOf(addr1.address);
     expect(balance).to.be.gt(0);
   });
 
-  it("Should handle multiple users", async function () {
+  it("Should handle multiple users with multiple NFTs", async function () {
     await nftContract.connect(addr1).approve(stakingContract.address, 1);
     await stakingContract.connect(addr1).stake(1);
+
+    await nftContract.connect(addr1).approve(stakingContract.address, 2);
+    await stakingContract.connect(addr1).stake(2);
 
     await nftContract.connect(addr2).approve(stakingContract.address, 3);
     await stakingContract.connect(addr2).stake(3);
@@ -73,11 +87,74 @@ describe("DZapNFTStaking", function () {
     }
 
     await stakingContract.connect(addr1).claimRewards(1);
+    await stakingContract.connect(addr1).claimRewards(2);
     await stakingContract.connect(addr2).claimRewards(3);
 
     let balance1 = await rewardToken.balanceOf(addr1.address);
     let balance2 = await rewardToken.balanceOf(addr2.address);
     expect(balance1).to.be.gt(0);
     expect(balance2).to.be.gt(0);
+  });
+
+  it("Should revert when staking while paused", async function () {
+    await stakingContract.pause();
+    await nftContract.connect(addr1).approve(stakingContract.address, 1);
+    await expect(stakingContract.connect(addr1).stake(1)).to.be.revertedWith("EnforcedPause");
+  });
+
+  it("Should revert when staking an already staked NFT", async function () {
+    await nftContract.connect(addr1).approve(stakingContract.address, 1);
+    await stakingContract.connect(addr1).stake(1);
+    await expect(stakingContract.connect(addr1).stake(1)).to.be.revertedWith("AlreadyStaked");
+  });
+
+  it("Should revert when staking an NFT not owned by the caller", async function () {
+    await expect(stakingContract.connect(addr1).stake(3)).to.be.revertedWith("NotTokenOwner");
+  });
+
+  it("Should revert when unstaking while paused", async function () {
+    await nftContract.connect(addr1).approve(stakingContract.address, 1);
+    await stakingContract.connect(addr1).stake(1);
+    await stakingContract.pause();
+    await expect(stakingContract.connect(addr1).unstake(1)).to.be.revertedWith("EnforcedPause");
+  });
+
+  it("Should revert when unstaking an unstaked NFT", async function () {
+    await expect(stakingContract.connect(addr1).unstake(1)).to.be.revertedWith("NotStaked");
+  });
+
+  it("Should revert when withdrawing before unbonding period is over", async function () {
+    await nftContract.connect(addr1).approve(stakingContract.address, 1);
+    await stakingContract.connect(addr1).stake(1);
+    await stakingContract.connect(addr1).unstake(1);
+    await expect(stakingContract.connect(addr1).withdraw(1)).to.be.revertedWith("UnbondingPeriodNotPassed");
+  });
+
+  it("Should revert when claiming rewards while NFT is unstaking", async function () {
+    await nftContract.connect(addr1).approve(stakingContract.address, 1);
+    await stakingContract.connect(addr1).stake(1);
+    await stakingContract.connect(addr1).unstake(1);
+    await expect(stakingContract.connect(addr1).claimRewards(1)).to.be.revertedWith("ClaimDelayNotPassed");
+  });
+
+  it("Should revert when claiming rewards before reward claim delay", async function () {
+    await nftContract.connect(addr1).approve(stakingContract.address, 1);
+    await stakingContract.connect(addr1).stake(1);
+    stakingContract.connect(addr1).claimRewards(1)
+    await ethers.provider.send("evm_increaseTime", [100]);
+    await ethers.provider.send("evm_mine", []);
+    await expect(stakingContract.connect(addr1).claimRewards(1)).to.be.revertedWith("ClaimDelayNotPassed");
+  });
+
+  it("Should revert when setting rewardPerBlock to zero", async function () {
+    await expect(stakingContract.setRewardPerBlock(0)).to.be.revertedWith("InvalidRewardPerBlock");
+  });
+
+  it("Should revert when setting unbondingPeriod to zero", async function () {
+    await expect(stakingContract.setUnbondingPeriod(0)).to.be.revertedWith("InvalidUnbondingPeriod");
+  });
+
+  it("Should revert when setting rewardClaimDelay to zero", async function () {
+    await expect(stakingContract.setRewardClaimDelay(0)).to.be.revertedWith("InvalidRewardClaimDelay");
   });
 });

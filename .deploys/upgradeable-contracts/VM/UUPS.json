@@ -1,0 +1,11 @@
+{
+  "id": "-",
+  "network": "VM",
+  "deployments": {
+    "0xD7ACd2a9FD159E69Bb102A1ca21C9a3e3A5F771B": {
+      "date": "2024-08-01T07:13:57.172Z",
+      "contractName": "DZapNFTStaking",
+      "implementationAddress": "0xf8e81D47203A594245E36C48e151709F0C19fBe8"
+    }
+  }
+}

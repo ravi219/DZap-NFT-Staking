@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -25,14 +25,15 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
     uint256 public unbondingPeriod;
     uint256 public rewardClaimDelay;
 
-    struct Stake {
+   struct Stake {
         uint256 tokenId;
         uint256 stakedAt;
         uint256 unbondingAt;
         uint256 rewardClaimedAt;
+        bool isStaked;
     }
 
-    mapping(address => Stake[]) public stakes;
+    mapping(address => mapping(uint256 => Stake)) public stakes;
     mapping(uint256 => address) public tokenOwner;
 
     event Staked(address indexed user, uint256 tokenId);
@@ -40,6 +41,8 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
     event RewardClaimed(address indexed user, uint256 amount);
 
     error NotTokenOwner();
+    error AlreadyStaked();
+    error NotStaked();
     error InvalidToken();
     error UnbondingPeriodNotPassed();
     error ClaimDelayNotPassed();
@@ -68,42 +71,43 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
         rewardClaimDelay = _rewardClaimDelay;
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+  function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function stake(uint256 tokenId) external whenNotPaused {
-        if (paused()) revert StakingPaused();
+        if (stakes[msg.sender][tokenId].isStaked) revert AlreadyStaked();
         if (nft.ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+
         nft.safeTransferFrom(msg.sender, address(this), tokenId);
-        stakes[msg.sender].push(Stake({
+        stakes[msg.sender][tokenId] = Stake({
             tokenId: tokenId,
             stakedAt: block.number,
             unbondingAt: 0,
-            rewardClaimedAt: block.timestamp
-        }));
+            rewardClaimedAt: block.timestamp,
+            isStaked: true
+        });
         tokenOwner[tokenId] = msg.sender;
         emit Staked(msg.sender, tokenId);
     }
 
     function unstake(uint256 tokenId) external whenNotPaused {
-        if (paused()) revert StakingPaused();
-        if (tokenOwner[tokenId] != msg.sender) revert NotTokenOwner();
-        uint256 index = _findTokenIndex(msg.sender, tokenId);
-        stakes[msg.sender][index].unbondingAt = block.number + unbondingPeriod;
+        if (!stakes[msg.sender][tokenId].isStaked) revert NotStaked();
+
+        stakes[msg.sender][tokenId].unbondingAt = block.number + unbondingPeriod;
         emit Unstaked(msg.sender, tokenId);
     }
 
     function withdraw(uint256 tokenId) external {
-        if (tokenOwner[tokenId] != msg.sender) revert NotTokenOwner();
-        uint256 index = _findTokenIndex(msg.sender, tokenId);
-        if (block.number < stakes[msg.sender][index].unbondingAt) revert UnbondingPeriodNotPassed();
+        if (!stakes[msg.sender][tokenId].isStaked) revert NotStaked();
+        if (block.number < stakes[msg.sender][tokenId].unbondingAt) revert UnbondingPeriodNotPassed();
+
         nft.safeTransferFrom(address(this), msg.sender, tokenId);
-        _removeTokenFromStakes(msg.sender, index);
+        delete stakes[msg.sender][tokenId];
+        delete tokenOwner[tokenId];
     }
 
     function claimRewards(uint256 tokenId) external {
-        if (tokenOwner[tokenId] != msg.sender) revert NotTokenOwner();
-        uint256 index = _findTokenIndex(msg.sender, tokenId);
-        Stake storage stakeInfo = stakes[msg.sender][index];
+        if (!stakes[msg.sender][tokenId].isStaked) revert NotStaked();
+        Stake storage stakeInfo = stakes[msg.sender][tokenId];
         if (stakeInfo.unbondingAt != 0) revert ClaimDelayNotPassed();
         if (block.timestamp < stakeInfo.rewardClaimedAt + rewardClaimDelay) revert ClaimDelayNotPassed();
         
@@ -137,22 +141,5 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
 
     function unpause() external onlyOwner {
         _unpause();
-    }
-
-    function _findTokenIndex(address user, uint256 tokenId) internal view returns (uint256) {
-        for (uint256 i = 0; i < stakes[user].length; i++) {
-            if (stakes[user][i].tokenId == tokenId) {
-                return i;
-            }
-        }
-        revert InvalidToken();
-    }
-
-    function _removeTokenFromStakes(address user, uint256 index) internal {
-        uint256 lastIndex = stakes[user].length - 1;
-        if (index != lastIndex) {
-            stakes[user][index] = stakes[user][lastIndex];
-        }
-        stakes[user].pop();
     }
 }

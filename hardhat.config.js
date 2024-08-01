@@ -1,21 +1,46 @@
 require("@nomiclabs/hardhat-waffle");
+require("@openzeppelin/hardhat-upgrades");
+const dotenv = require('dotenv');
+// dotenv.config();
+require("dotenv").config();
 
-// This is a sample Hardhat task. To learn how to create your own go to
-// https://hardhat.org/guides/create-task.html
-task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
-  const accounts = await hre.ethers.getSigners();
-
-  for (const account of accounts) {
-    console.log(account.address);
-  }
-});
-
-// You need to export an object to set up your config
-// Go to https://hardhat.org/config/ to learn more
-
-/**
- * @type import('hardhat/config').HardhatUserConfig
- */
+/** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
-  solidity: "0.8.24",
+  // solidity: {
+  //   compilers:[
+  //     {
+  //      version : "0.8.23"
+  //     },
+  //   ]
+  // },
+
+  solidity: {
+    version: "0.8.24",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+    },
+
+  },
+
+  hardhat: {
+    allowUnlimitedContractSize: true,
+  },
+  networks:{
+    sepolia :{
+      url: process.env.SEPOLIA_RPC_URL,
+      chainId: 11155111,
+      accounts: [`0x${process.env.PRIVATE_KEY}`],
+
+    },
+
+  },
+  etherscan:{
+    apiKey: {
+      sepolia: "NBGM92QQNNYW4ETF6XWM9CNDX1NYHUDF47",
+    },
+
+  }
 };
