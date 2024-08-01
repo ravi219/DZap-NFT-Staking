@@ -10,10 +10,7 @@ import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-/**
- * @title DZapNFTStaking
- * @dev Contract for staking NFTs and earning ERC20 rewards.
- */
+
 contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable, ERC721HolderUpgradeable {
     using SafeERC20 for IERC20;
 
@@ -25,7 +22,7 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
     uint256 public unbondingPeriod;
     uint256 public rewardClaimDelay;
 
-   struct Stake {
+    struct Stake {
         uint256 tokenId;
         uint256 stakedAt;
         uint256 unbondingAt;
@@ -51,6 +48,15 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
     error InvalidUnbondingPeriod();
     error InvalidRewardClaimDelay();
 
+    /**
+     * @dev Initializes the contract by setting the admin, NFT contract, reward token contract, reward per block, unbonding period, and reward claim delay.
+     * @param _admin Address of the contract admin.
+     * @param _nft Address of the NFT contract.
+     * @param _rewardToken Address of the reward token contract.
+     * @param _rewardPerBlock Number of reward tokens given per block.
+     * @param _unbondingPeriod Number of blocks required to wait before withdrawing an unstaked NFT.
+     * @param _rewardClaimDelay Number of seconds required to wait before claiming rewards.
+     */
     function initialize(
         address _admin,
         address _nft,
@@ -71,8 +77,17 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
         rewardClaimDelay = _rewardClaimDelay;
     }
 
-  function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    /**
+     * @dev Authorizes the upgrade to a new implementation.
+     * @param newImplementation Address of the new implementation contract.
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
+    /**
+     * @notice Stakes an NFT to earn rewards.
+     * @dev Transfers the NFT from the caller to the contract.
+     * @param tokenId ID of the NFT to be staked.
+     */
     function stake(uint256 tokenId) external whenNotPaused {
         if (stakes[msg.sender][tokenId].isStaked) revert AlreadyStaked();
         if (nft.ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
@@ -89,6 +104,11 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
         emit Staked(msg.sender, tokenId);
     }
 
+    /**
+     * @notice Unstakes an NFT.
+     * @dev Sets the unbonding period for the staked NFT.
+     * @param tokenId ID of the NFT to be unstaked.
+     */
     function unstake(uint256 tokenId) external whenNotPaused {
         if (!stakes[msg.sender][tokenId].isStaked) revert NotStaked();
 
@@ -96,6 +116,11 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
         emit Unstaked(msg.sender, tokenId);
     }
 
+    /**
+     * @notice Withdraws an unstaked NFT after the unbonding period has passed.
+     * @dev Transfers the NFT from the contract back to the caller.
+     * @param tokenId ID of the NFT to be withdrawn.
+     */
     function withdraw(uint256 tokenId) external {
         if (!stakes[msg.sender][tokenId].isStaked) revert NotStaked();
         if (block.number < stakes[msg.sender][tokenId].unbondingAt) revert UnbondingPeriodNotPassed();
@@ -105,6 +130,11 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
         delete tokenOwner[tokenId];
     }
 
+    /**
+     * @notice Claims accumulated rewards for a staked NFT.
+     * @dev Transfers the reward tokens to the caller.
+     * @param tokenId ID of the staked NFT.
+     */
     function claimRewards(uint256 tokenId) external {
         if (!stakes[msg.sender][tokenId].isStaked) revert NotStaked();
         Stake storage stakeInfo = stakes[msg.sender][tokenId];
@@ -120,25 +150,48 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
         }
     }
 
+    /**
+     * @notice Sets the number of reward tokens given per block.
+     * @dev Only callable by the contract owner.
+     * @param _rewardPerBlock New number of reward tokens per block.
+     */
     function setRewardPerBlock(uint256 _rewardPerBlock) external onlyOwner {
         if (_rewardPerBlock == 0) revert InvalidRewardPerBlock();
         rewardPerBlock = _rewardPerBlock;
     }
 
+    /**
+     * @notice Sets the unbonding period.
+     * @dev Only callable by the contract owner.
+     * @param _unbondingPeriod New unbonding period in blocks.
+     */
     function setUnbondingPeriod(uint256 _unbondingPeriod) external onlyOwner {
         if (_unbondingPeriod == 0) revert InvalidUnbondingPeriod();
         unbondingPeriod = _unbondingPeriod;
     }
 
+    /**
+     * @notice Sets the reward claim delay.
+     * @dev Only callable by the contract owner.
+     * @param _rewardClaimDelay New reward claim delay in seconds.
+     */
     function setRewardClaimDelay(uint256 _rewardClaimDelay) external onlyOwner {
         if (_rewardClaimDelay == 0) revert InvalidRewardClaimDelay();
         rewardClaimDelay = _rewardClaimDelay;
     }
 
+    /**
+     * @notice Pauses the staking process.
+     * @dev Only callable by the contract owner.
+     */
     function pause() external onlyOwner {
         _pause();
     }
 
+    /**
+     * @notice Unpauses the staking process.
+     * @dev Only callable by the contract owner.
+     */
     function unpause() external onlyOwner {
         _unpause();
     }
