@@ -104,7 +104,6 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
         if (stakes[msg.sender][tokenId].isStaked) revert AlreadyStaked();
         if (nft.ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
 
-        _claimRewards(msg.sender, tokenId);
         nft.safeTransferFrom(msg.sender, address(this), tokenId);
         stakes[msg.sender][tokenId] = Stake({
             tokenId: tokenId,
