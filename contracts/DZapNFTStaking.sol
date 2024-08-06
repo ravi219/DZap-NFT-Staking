@@ -1,24 +1,35 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/utils/ERC721HolderUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "./interface/IDZapNFTStaking.sol";
+import "hardhat/console.sol";
 
-
-contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable, ERC721HolderUpgradeable {
+/**
+ * @title DZapNFTStaking
+ * @dev Contract for staking NFTs and earning ERC20 rewards.
+ */
+contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, PausableUpgradeable, ERC721HolderUpgradeable, IDZapNFTStaking {
     using SafeERC20 for IERC20;
 
     IERC721 public nft;
     IERC20 public rewardToken;
-
     address public admin;
-    uint256 public rewardPerBlock;
+
+    struct RewardRate {
+        uint256 blockNumber;
+        uint256 rewardPerBlock;
+    }
+
+    RewardRate[] public rewardRates;
+
     uint256 public unbondingPeriod;
     uint256 public rewardClaimDelay;
 
@@ -36,6 +47,7 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
     event Staked(address indexed user, uint256 tokenId);
     event Unstaked(address indexed user, uint256 tokenId);
     event RewardClaimed(address indexed user, uint256 amount);
+    event RewardRateUpdated(uint256 blockNumber, uint256 rewardPerBlock);
 
     error NotTokenOwner();
     error AlreadyStaked();
@@ -66,13 +78,13 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
         uint256 _rewardClaimDelay
     ) public initializer {
         __UUPSUpgradeable_init();
-        __Ownable_init(_admin);
+        __Ownable_init();
         __Pausable_init();
 
         admin = _admin;
         nft = IERC721(_nft);
         rewardToken = IERC20(_rewardToken);
-        rewardPerBlock = _rewardPerBlock;
+        rewardRates.push(RewardRate(block.number, _rewardPerBlock));
         unbondingPeriod = _unbondingPeriod;
         rewardClaimDelay = _rewardClaimDelay;
     }
@@ -92,6 +104,7 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
         if (stakes[msg.sender][tokenId].isStaked) revert AlreadyStaked();
         if (nft.ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
 
+        _claimRewards(msg.sender, tokenId);
         nft.safeTransferFrom(msg.sender, address(this), tokenId);
         stakes[msg.sender][tokenId] = Stake({
             tokenId: tokenId,
@@ -111,6 +124,8 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
      */
     function unstake(uint256 tokenId) external whenNotPaused {
         if (!stakes[msg.sender][tokenId].isStaked) revert NotStaked();
+
+        _claimRewards(msg.sender, tokenId);
 
         stakes[msg.sender][tokenId].unbondingAt = block.number + unbondingPeriod;
         emit Unstaked(msg.sender, tokenId);
@@ -137,27 +152,57 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
      */
     function claimRewards(uint256 tokenId) external {
         if (!stakes[msg.sender][tokenId].isStaked) revert NotStaked();
-        Stake storage stakeInfo = stakes[msg.sender][tokenId];
-        if (stakeInfo.unbondingAt != 0) revert ClaimDelayNotPassed();
-        if (block.timestamp < stakeInfo.rewardClaimedAt + rewardClaimDelay) revert ClaimDelayNotPassed();
-        
-        uint256 rewards = (block.number - stakeInfo.stakedAt) * rewardPerBlock;
+        if (stakes[msg.sender][tokenId].unbondingAt != 0) revert ClaimDelayNotPassed();
+        if (block.timestamp < stakes[msg.sender][tokenId].rewardClaimedAt + rewardClaimDelay) revert ClaimDelayNotPassed();
+
+        _claimRewards(msg.sender, tokenId);
+    }
+
+    /**
+     * @dev Internal function to claim rewards for a specific staked NFT.
+     * @param user Address of the user.
+     * @param tokenId ID of the staked NFT.
+     */
+    function _claimRewards(address user, uint256 tokenId) internal {
+        Stake storage stakeInfo = stakes[user][tokenId];
+        uint256 rewards = _calculateRewards(stakeInfo.stakedAt, block.number);
         if (rewards > 0) {
-            rewardToken.safeTransfer(msg.sender, rewards);
-            emit RewardClaimed(msg.sender, rewards);
+            rewardToken.safeTransfer(user, rewards);
+            emit RewardClaimed(user, rewards);
             stakeInfo.stakedAt = block.number;
             stakeInfo.rewardClaimedAt = block.timestamp;
         }
     }
 
     /**
-     * @notice Sets the number of reward tokens given per block.
-     * @dev Only callable by the contract owner.
+     * @dev Internal function to calculate rewards from a start block to an end block.
+     * @param startBlock The block number to start calculating rewards from.
+     * @param endBlock The block number to stop calculating rewards at.
+     * @return totalRewards The total rewards accumulated from startBlock to endBlock.
+     */
+    function _calculateRewards(uint256 startBlock, uint256 endBlock) internal view returns (uint256 totalRewards) {
+        uint256 len = rewardRates.length;
+        for (uint256 i = len - 1; i >= 0; i--) {
+            RewardRate memory rate = rewardRates[i];
+            if (endBlock > rate.blockNumber) {
+                uint256 blocks = endBlock - rate.blockNumber;
+                totalRewards += blocks * rate.rewardPerBlock;
+                endBlock = rate.blockNumber;
+            if (i == 0) break;
+            }
+        }
+    }
+
+    /**
+     * @notice Updates the number of reward tokens given per block.
+     * @dev Records the new reward rate along with the current block number.
      * @param _rewardPerBlock New number of reward tokens per block.
      */
-    function setRewardPerBlock(uint256 _rewardPerBlock) external onlyOwner {
+    function updateRewardRate(uint256 _rewardPerBlock) external onlyOwner {
         if (_rewardPerBlock == 0) revert InvalidRewardPerBlock();
-        rewardPerBlock = _rewardPerBlock;
+
+        rewardRates.push(RewardRate(block.number, _rewardPerBlock));
+        emit RewardRateUpdated(block.number, _rewardPerBlock);
     }
 
     /**
@@ -195,4 +240,5 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
     function unpause() external onlyOwner {
         _unpause();
     }
+
 }

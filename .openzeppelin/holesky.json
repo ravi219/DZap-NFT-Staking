@@ -5,6 +5,11 @@
       "address": "0x6D14B977Cf13bCe5cCd8Ae9D2002131136Bd42d6",
       "txHash": "0x43e1a6927d1bd08d353c90d6f1482591b6c3427505f7ca5d52eb5e31a1a249c1",
       "kind": "uups"
+    },
+    {
+      "address": "0x57c2Aa880fA42Bde7083BD2c8553a0e6062DC164",
+      "txHash": "0xa34d38b58dc65468919985a779a8cce38c260a8f96bb23846b0dee022273b516",
+      "kind": "uups"
     }
   ],
   "impls": {
@@ -109,6 +114,206 @@
             "numberOfBytes": "32"
           },
           "t_struct(Stake)5365_storage": {
+            "label": "struct DZapNFTStaking.Stake",
+            "members": [
+              {
+                "label": "tokenId",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "stakedAt",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              },
+              {
+                "label": "unbondingAt",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "2"
+              },
+              {
+                "label": "rewardClaimedAt",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "3"
+              },
+              {
+                "label": "isStaked",
+                "type": "t_bool",
+                "offset": 0,
+                "slot": "4"
+              }
+            ],
+            "numberOfBytes": "160"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint64": {
+            "label": "uint64"
+          }
+        },
+        "namespaces": {
+          "erc7201:openzeppelin.storage.Pausable": [
+            {
+              "contract": "PausableUpgradeable",
+              "label": "_paused",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol:21"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Ownable": [
+            {
+              "contract": "OwnableUpgradeable",
+              "label": "_owner",
+              "type": "t_address",
+              "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:24"
+            }
+          ],
+          "erc7201:openzeppelin.storage.Initializable": [
+            {
+              "contract": "Initializable",
+              "label": "_initialized",
+              "type": "t_uint64",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:69"
+            },
+            {
+              "contract": "Initializable",
+              "label": "_initializing",
+              "type": "t_bool",
+              "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:73"
+            }
+          ]
+        }
+      }
+    },
+    "5a4b7ed72635eca97d082315bc5b462a26eccbe568bb88fc7a261e29b57f5bb2": {
+      "address": "0xD26312BD654a1b98928d21400ce9C8978dfCbA1c",
+      "txHash": "0xe5d7b9b8cdd64baa604659f1231855ebe7354513f248fbce8d8df93fb6590365",
+      "layout": {
+        "solcVersion": "0.8.24",
+        "storage": [
+          {
+            "label": "nft",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_contract(IERC721)1739",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:21"
+          },
+          {
+            "label": "rewardToken",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_contract(IERC20)1296",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:22"
+          },
+          {
+            "label": "admin",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_address",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:23"
+          },
+          {
+            "label": "rewardRates",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_array(t_struct(RewardRate)2173_storage)dyn_storage",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:30"
+          },
+          {
+            "label": "unbondingPeriod",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_uint256",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:32"
+          },
+          {
+            "label": "rewardClaimDelay",
+            "offset": 0,
+            "slot": "5",
+            "type": "t_uint256",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:33"
+          },
+          {
+            "label": "stakes",
+            "offset": 0,
+            "slot": "6",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_struct(Stake)2192_storage))",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:43"
+          },
+          {
+            "label": "tokenOwner",
+            "offset": 0,
+            "slot": "7",
+            "type": "t_mapping(t_uint256,t_address)",
+            "contract": "DZapNFTStaking",
+            "src": "contracts/DZapNFTStaking.sol:44"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_struct(RewardRate)2173_storage)dyn_storage": {
+            "label": "struct DZapNFTStaking.RewardRate[]",
+            "numberOfBytes": "32"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(IERC20)1296": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IERC721)1739": {
+            "label": "contract IERC721",
+            "numberOfBytes": "20"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_struct(Stake)2192_storage))": {
+            "label": "mapping(address => mapping(uint256 => struct DZapNFTStaking.Stake))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_address)": {
+            "label": "mapping(uint256 => address)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_struct(Stake)2192_storage)": {
+            "label": "mapping(uint256 => struct DZapNFTStaking.Stake)",
+            "numberOfBytes": "32"
+          },
+          "t_struct(RewardRate)2173_storage": {
+            "label": "struct DZapNFTStaking.RewardRate",
+            "members": [
+              {
+                "label": "blockNumber",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "rewardPerBlock",
+                "type": "t_uint256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_struct(Stake)2192_storage": {
             "label": "struct DZapNFTStaking.Stake",
             "members": [
               {

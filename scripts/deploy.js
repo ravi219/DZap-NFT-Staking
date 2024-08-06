@@ -28,6 +28,8 @@ async function main() {
   const Staking = await ethers.getContractFactory("DZapNFTStaking");
   console.log("I'm here");
   await sleep(6000);
+
+  
   const staking = await upgrades.deployProxy(Staking, [
     admin,
     nft.address,
@@ -35,7 +37,7 @@ async function main() {
     ethers.utils.parseUnits("10", 18), 
     10, 
     10  
-  ], { initializer: 'initialize' });
+  ], { initializer: 'initialize',  kind: 'uups' });
   await staking.deployed();
   console.log("DZapNFTStaking address:", staking.address);
 }

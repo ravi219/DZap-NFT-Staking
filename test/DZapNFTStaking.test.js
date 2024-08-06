@@ -1,5 +1,10 @@
 const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
+const { mine } = require("@nomicfoundation/hardhat-network-helpers");
+
+async function mineBlocks(numberOfBlocks) {
+  await ethers.provider.send("hardhat_mine", [`0x${numberOfBlocks.toString(16)}`]);
+}
 
 describe("DZapNFTStaking", function () {
   let stakingContract, nftContract, rewardToken, owner, addr1, addr2;
@@ -45,7 +50,9 @@ describe("DZapNFTStaking", function () {
     
     expect(stake1.tokenId).to.equal(1);
     expect(stake2.tokenId).to.equal(2);
-
+    await mineBlocks(50);
+    await stakingContract.updateRewardRate(ethers.utils.parseUnits("20", 18));
+    await mineBlocks(50);
     await stakingContract.connect(addr1).unstake(1);
 
     stake1 = await stakingContract.stakes(addr1.address, 1);
@@ -99,7 +106,7 @@ describe("DZapNFTStaking", function () {
   it("Should revert when staking while paused", async function () {
     await stakingContract.pause();
     await nftContract.connect(addr1).approve(stakingContract.address, 1);
-    await expect(stakingContract.connect(addr1).stake(1)).to.be.revertedWith("EnforcedPause");
+    await expect(stakingContract.connect(addr1).stake(1)).to.be.revertedWith("Pausable: paused");
   });
 
   it("Should revert when staking an already staked NFT", async function () {
@@ -116,7 +123,7 @@ describe("DZapNFTStaking", function () {
     await nftContract.connect(addr1).approve(stakingContract.address, 1);
     await stakingContract.connect(addr1).stake(1);
     await stakingContract.pause();
-    await expect(stakingContract.connect(addr1).unstake(1)).to.be.revertedWith("EnforcedPause");
+    await expect(stakingContract.connect(addr1).unstake(1)).to.be.revertedWith("Pausable: paused");
   });
 
   it("Should revert when unstaking an unstaked NFT", async function () {
@@ -147,7 +154,7 @@ describe("DZapNFTStaking", function () {
   });
 
   it("Should revert when setting rewardPerBlock to zero", async function () {
-    await expect(stakingContract.setRewardPerBlock(0)).to.be.revertedWith("InvalidRewardPerBlock");
+    await expect(stakingContract.updateRewardRate(0)).to.be.revertedWith("InvalidRewardPerBlock");
   });
 
   it("Should revert when setting unbondingPeriod to zero", async function () {
