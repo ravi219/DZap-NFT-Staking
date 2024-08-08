@@ -26,6 +26,7 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
     struct RewardRate {
         uint256 blockNumber;
         uint256 rewardPerBlock;
+        uint256 cumulativeReward;
     }
 
     RewardRate[] public rewardRates;
@@ -84,7 +85,7 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
         admin = _admin;
         nft = IERC721(_nft);
         rewardToken = IERC20(_rewardToken);
-        rewardRates.push(RewardRate(block.number, _rewardPerBlock));
+        rewardRates.push(RewardRate(block.number, _rewardPerBlock, 0));
         unbondingPeriod = _unbondingPeriod;
         rewardClaimDelay = _rewardClaimDelay;
     }
@@ -181,15 +182,36 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
      */
     function _calculateRewards(uint256 startBlock, uint256 endBlock) internal view returns (uint256 totalRewards) {
         uint256 len = rewardRates.length;
-        for (uint256 i = len - 1; i >= 0; i--) {
-            RewardRate memory rate = rewardRates[i];
-            if (endBlock > rate.blockNumber) {
-                uint256 blocks = endBlock - rate.blockNumber;
-                totalRewards += blocks * rate.rewardPerBlock;
-                endBlock = rate.blockNumber;
-            if (i == 0) break;
+        
+        uint256 startCumulativeReward = _getCumulativeRewardAtBlock(startBlock);
+        uint256 endCumulativeReward = _getCumulativeRewardAtBlock(endBlock);
+        console.log("startCumulativeReward", startCumulativeReward, endCumulativeReward);
+        totalRewards = endCumulativeReward - startCumulativeReward;
+    }
+
+    /**
+     * @dev Internal function to get the cumulative reward at a specific block number.
+     * @param blockNumber The block number to get the cumulative reward at.
+     * @return cumulativeReward The cumulative reward at the specified block number.
+     */
+    function _getCumulativeRewardAtBlock(uint256 blockNumber) internal view returns (uint256 cumulativeReward) {
+        uint256 len = rewardRates.length;
+        
+        uint256 low = 0;
+        uint256 high = len - 1;
+
+        while (low < high) {
+            uint256 mid = (low + high + 1) / 2;
+            if (rewardRates[mid].blockNumber <= blockNumber) {
+                low = mid;
+            } else {
+                high = mid - 1;
             }
         }
+
+        RewardRate memory rate = rewardRates[low];
+        cumulativeReward = rate.cumulativeReward + (blockNumber - rate.blockNumber) * rate.rewardPerBlock;
+        console.log("cumulativeReward",cumulativeReward);
     }
 
     /**
@@ -200,7 +222,12 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
     function updateRewardRate(uint256 _rewardPerBlock) external onlyOwner {
         if (_rewardPerBlock == 0) revert InvalidRewardPerBlock();
 
-        rewardRates.push(RewardRate(block.number, _rewardPerBlock));
+        uint256 len = rewardRates.length;
+        uint256 cumulativeReward = rewardRates[len - 1].cumulativeReward;
+        uint256 blocks = block.number - rewardRates[len - 1].blockNumber;
+        cumulativeReward += blocks * rewardRates[len - 1].rewardPerBlock;
+
+        rewardRates.push(RewardRate(block.number, _rewardPerBlock, cumulativeReward));
         emit RewardRateUpdated(block.number, _rewardPerBlock);
     }
 
@@ -239,5 +266,4 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
     function unpause() external onlyOwner {
         _unpause();
     }
-
 }

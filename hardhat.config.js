@@ -28,19 +28,19 @@ module.exports = {
   hardhat: {
     allowUnlimitedContractSize: true,
   },
-  networks:{
-    sepolia :{
-      url: "https://ethereum-sepolia-rpc.publicnode.com	",
-      chainId: 11155111,
-      accounts: [`0x${process.env.PRIVATE_KEY}`],
+  // networks:{
+  //   sepolia :{
+  //     url: "https://ethereum-sepolia-rpc.publicnode.com	",
+  //     chainId: 11155111,
+  //     accounts: [`0x${process.env.PRIVATE_KEY}`],
 
-    },
+  //   },
 
-  },
-  etherscan:{
-    apiKey: {
-      sepolia: "NBGM92QQNNYW4ETF6XWM9CNDX1NYHUDF47",
-    },
+  // },
+  // etherscan:{
+  //   apiKey: {
+  //     sepolia: "NBGM92QQNNYW4ETF6XWM9CNDX1NYHUDF47",
+  //   },
 
-  }
+  // }
 };

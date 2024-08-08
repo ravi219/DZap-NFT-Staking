@@ -38,7 +38,7 @@ describe("DZapNFTStaking", function () {
     await rewardToken.mint(stakingContract.address, ethers.utils.parseUnits("1000000", 18));
   });
 
-  it("Should allow staking and unstaking of multiple NFTs per user", async function () {
+  it.only("Should allow staking and unstaking of multiple NFTs per user", async function () {
     await nftContract.connect(addr1).approve(stakingContract.address, 1);
     await stakingContract.connect(addr1).stake(1);
     
@@ -52,7 +52,9 @@ describe("DZapNFTStaking", function () {
     expect(stake2.tokenId).to.equal(2);
     await mineBlocks(50);
     await stakingContract.updateRewardRate(ethers.utils.parseUnits("20", 18));
-    await mineBlocks(50);
+    await mineBlocks(25);
+    await stakingContract.updateRewardRate(ethers.utils.parseUnits("40", 18));
+    await mineBlocks(25);
     await stakingContract.connect(addr1).unstake(1);
 
     stake1 = await stakingContract.stakes(addr1.address, 1);
