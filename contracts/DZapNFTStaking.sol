@@ -23,22 +23,20 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
     IERC20 public rewardToken;
     address public admin;
 
-    struct RewardRate {
-        uint256 blockNumber;
-        uint256 rewardPerBlock;
-        uint256 cumulativeReward;
-    }
-
-    RewardRate[] public rewardRates;
-
+    uint256 public rewardPerBlock;
     uint256 public unbondingPeriod;
     uint256 public rewardClaimDelay;
+    uint256 public totalCumulativeReward;
+    uint256 public lastUpdateBlock;
 
     struct Stake {
         uint256 tokenId;
         uint256 stakedAt;
         uint256 unbondingAt;
         uint256 rewardClaimedAt;
+        uint256 accumulatedRewards;
+        uint256 lastUpdateBlock;
+        uint256 lastCumulativeReward;
         bool isStaked;
     }
 
@@ -85,9 +83,11 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
         admin = _admin;
         nft = IERC721(_nft);
         rewardToken = IERC20(_rewardToken);
-        rewardRates.push(RewardRate(block.number, _rewardPerBlock, 0));
+        rewardPerBlock = _rewardPerBlock;
         unbondingPeriod = _unbondingPeriod;
         rewardClaimDelay = _rewardClaimDelay;
+        totalCumulativeReward = 0;
+        lastUpdateBlock = block.number;
     }
 
     /**
@@ -105,12 +105,17 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
         if (stakes[msg.sender][tokenId].isStaked) revert AlreadyStaked();
         if (nft.ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
 
+        _updateGlobalRewards();
+
         nft.safeTransferFrom(msg.sender, address(this), tokenId);
         stakes[msg.sender][tokenId] = Stake({
             tokenId: tokenId,
             stakedAt: block.number,
             unbondingAt: 0,
             rewardClaimedAt: block.timestamp,
+            accumulatedRewards: 0,
+            lastUpdateBlock: block.number,
+            lastCumulativeReward: totalCumulativeReward,
             isStaked: true
         });
         tokenOwner[tokenId] = msg.sender;
@@ -164,70 +169,58 @@ contract DZapNFTStaking is Initializable, UUPSUpgradeable, OwnableUpgradeable, P
      * @param tokenId ID of the staked NFT.
      */
     function _claimRewards(address user, uint256 tokenId) internal {
+        _updateRewards(user, tokenId);
+
         Stake storage stakeInfo = stakes[user][tokenId];
-        uint256 rewards = _calculateRewards(stakeInfo.stakedAt, block.number);
+        uint256 rewards = stakeInfo.accumulatedRewards;
+        console.log("rewards", rewards);
         if (rewards > 0) {
+            stakeInfo.accumulatedRewards = 0; // reset accumulated rewards after claiming
             rewardToken.safeTransfer(user, rewards);
             emit RewardClaimed(user, rewards);
-            stakeInfo.stakedAt = block.number;
             stakeInfo.rewardClaimedAt = block.timestamp;
         }
     }
 
     /**
-     * @dev Internal function to calculate rewards from a start block to an end block.
-     * @param startBlock The block number to start calculating rewards from.
-     * @param endBlock The block number to stop calculating rewards at.
-     * @return totalRewards The total rewards accumulated from startBlock to endBlock.
+     * @dev Internal function to update rewards for a stake.
+     * @param user Address of the user.
+     * @param tokenId ID of the staked NFT.
      */
-    function _calculateRewards(uint256 startBlock, uint256 endBlock) internal view returns (uint256 totalRewards) {
-        uint256 len = rewardRates.length;
-        
-        uint256 startCumulativeReward = _getCumulativeRewardAtBlock(startBlock);
-        uint256 endCumulativeReward = _getCumulativeRewardAtBlock(endBlock);
-        console.log("startCumulativeReward", startCumulativeReward, endCumulativeReward);
-        totalRewards = endCumulativeReward - startCumulativeReward;
+    function _updateRewards(address user, uint256 tokenId) internal {
+        Stake storage stakeInfo = stakes[user][tokenId];
+        if (stakeInfo.isStaked) {
+            _updateGlobalRewards();
+
+            uint256 newRewards = totalCumulativeReward - stakeInfo.lastCumulativeReward;
+            stakeInfo.accumulatedRewards += newRewards;
+            stakeInfo.lastUpdateBlock = block.number;
+            stakeInfo.lastCumulativeReward = totalCumulativeReward;
+        }
     }
 
     /**
-     * @dev Internal function to get the cumulative reward at a specific block number.
-     * @param blockNumber The block number to get the cumulative reward at.
-     * @return cumulativeReward The cumulative reward at the specified block number.
+     * @dev Internal function to update global cumulative rewards.
      */
-    function _getCumulativeRewardAtBlock(uint256 blockNumber) internal view returns (uint256 cumulativeReward) {
-        uint256 len = rewardRates.length;
-        
-        uint256 low = 0;
-        uint256 high = len - 1;
-
-        while (low < high) {
-            uint256 mid = (low + high + 1) / 2;
-            if (rewardRates[mid].blockNumber <= blockNumber) {
-                low = mid;
-            } else {
-                high = mid - 1;
-            }
+    function _updateGlobalRewards() internal {
+        if (block.number > lastUpdateBlock) {
+            uint256 blocks = block.number - lastUpdateBlock;
+            totalCumulativeReward += blocks * rewardPerBlock;
+            lastUpdateBlock = block.number;
         }
-
-        RewardRate memory rate = rewardRates[low];
-        cumulativeReward = rate.cumulativeReward + (blockNumber - rate.blockNumber) * rate.rewardPerBlock;
-        console.log("cumulativeReward",cumulativeReward);
     }
 
     /**
      * @notice Updates the number of reward tokens given per block.
-     * @dev Records the new reward rate along with the current block number.
+     * @dev Updates the reward rate.
      * @param _rewardPerBlock New number of reward tokens per block.
      */
     function updateRewardRate(uint256 _rewardPerBlock) external onlyOwner {
         if (_rewardPerBlock == 0) revert InvalidRewardPerBlock();
 
-        uint256 len = rewardRates.length;
-        uint256 cumulativeReward = rewardRates[len - 1].cumulativeReward;
-        uint256 blocks = block.number - rewardRates[len - 1].blockNumber;
-        cumulativeReward += blocks * rewardRates[len - 1].rewardPerBlock;
+        _updateGlobalRewards();
 
-        rewardRates.push(RewardRate(block.number, _rewardPerBlock, cumulativeReward));
+        rewardPerBlock = _rewardPerBlock;
         emit RewardRateUpdated(block.number, _rewardPerBlock);
     }
 
